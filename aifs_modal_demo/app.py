@@ -1,6 +1,5 @@
 """AIFS Modal app."""
 
-import contextlib
 import datetime
 import os
 import queue
@@ -29,9 +28,6 @@ models_volume = modal.Volume.from_name(MODELS_VOLUME_NAME, create_if_missing=Tru
 # secrets
 arraylake_api_token_secret = modal.Secret.from_name(
     "arraylake-api-token",  # required_keys=["ARRAYLAKE_API_TOKEN"]
-)
-aws_credentials_secret = modal.Secret.from_name(
-    "aws-credentials",
 )
 
 app = modal.App(APP_NAME)
@@ -88,26 +84,6 @@ def datetime_to_str(date: datetime.datetime) -> str:
     assert date.minute == date.second == date.microsecond == 0
     assert date.hour in [0, 6, 12, 18]
     return date.strftime("%Y-%m-%d/%Hz")
-
-
-@contextlib.contextmanager
-def _without_aws_env():
-    keys = [
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY",
-        "AWS_SESSION_TOKEN",
-        "AWS_REGION",
-        "AWS_DEFAULT_REGION",
-        "AWS_PROFILE",
-        "AWS_SHARED_CREDENTIALS_FILE",
-        "AWS_CONFIG_FILE",
-        "AWS_ENDPOINT_URL",
-    ]
-    saved = {key: os.environ.pop(key) for key in keys if key in os.environ}
-    try:
-        yield
-    finally:
-        os.environ.update(saved)
 
 
 def get_gpu_regridder(source_grid, target_grid, method="linear"):
@@ -232,17 +208,16 @@ def fetch_initial_conditions(
     gpu=GPU_TYPE,
     timeout=60 * 60 * 4,
     volumes={DATA_DIR: data_volume},
-    secrets=[arraylake_api_token_secret, aws_credentials_secret],
+    secrets=[arraylake_api_token_secret],
 )
 def run_forecast(
     date: datetime.datetime,
     # target_storage_path: str,
-    target_storage_bucket: str,
+    target_repo: str,
     *,
     lead_time: int = 96,
     initial_conditions_repo: str = "earthmover-public/aifs-initial-conditions",
     initial_conditions_branch: str = "main",
-    target_storage_prefix: str = "aifs-outputs",
     target_branch: str = "main",
     checkpoint: dict | None = None,
 ) -> None:  # dict[str, str]:
@@ -256,32 +231,23 @@ def run_forecast(
     date_no_tz = date.replace(tzinfo=None)
 
     # load initial conditions from arraylake
-    with _without_aws_env():
-        client = al.Client(token=os.environ["ARRAYLAKE_API_TOKEN"])
-        # client.login()
-        # ACHTUNG: use default config to avoid confusion with AWS credentials
-        config = icechunk.RepositoryConfig.default()
-        repo = client.get_repo(initial_conditions_repo, config=config)
-        input_session = repo.readonly_session(initial_conditions_branch)
+    client = al.Client(token=os.environ["ARRAYLAKE_API_TOKEN"])
+    # client.login()
+    # ACHTUNG: use default config to avoid confusion with AWS credentials
+    config = icechunk.RepositoryConfig.default()
+    repo = client.get_repo(initial_conditions_repo, config=config)
+    input_session = repo.readonly_session(initial_conditions_branch)
+
+    # get target session for outputs
+    target_session = client.get_or_create_repo(target_repo).writable_session(
+        target_branch
+    )
 
     # date = datetime.datetime(2025, 9, 15, 6, 0, 0, tzinfo=datetime.UTC)
     print("loading initial conditions for", date)
     # fields = load_fields(session, input_group)
     fields = fetch_initial_conditions(date, input_session)
     input_state = dict(date=date_no_tz, fields=fields)
-
-    # # prepare output storage on a modal volume
-    target_storage = icechunk.tigris_storage(
-        bucket=target_storage_bucket,
-        prefix=target_storage_prefix,
-        region=os.getenv("AWS_REGION", None),
-        access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-        secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-        # endpoint_url=os.environ["AWS_ENDPOINT_URL"],
-        # from_env=True,
-    )
-    target_repo = icechunk.Repository.open_or_create(target_storage)
-    target_session = target_repo.writable_session(target_branch)
 
     if checkpoint is None:
         checkpoint = {"huggingface": "ecmwf/aifs-single-1.1"}
@@ -321,7 +287,9 @@ def run_forecast(
     q.join()
 
     torch.cuda.empty_cache()
-    target_session.commit(
+    commit_msg = (
         f"{lead_time} hour forecast for {date.strftime('%Y-%m-%d %H:%M')} written to "
-        f"{target_storage_bucket}"
+        f"{target_repo}"
     )
+    target_session.commit(commit_msg)
+    print(commit_msg)
