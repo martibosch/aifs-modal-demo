@@ -62,7 +62,6 @@ image = (
     .env(
         {
             "HF_HUB_CACHE": path.join(MODELS_DIR, "hf_hub_cache"),
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # turn on faster downloads from HF
             "TORCH_HOME": path.join(MODELS_DIR, "torch"),
             # "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
             "PYTORCH_ALLOC_CONF": "expandable_segments:True",
