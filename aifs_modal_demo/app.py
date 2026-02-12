@@ -206,7 +206,7 @@ def fetch_initial_conditions(
     image=image,
     gpu=GPU_TYPE,
     timeout=60 * 60 * 4,
-    volumes={DATA_DIR: data_volume},
+    volumes={DATA_DIR: data_volume, MODELS_DIR: models_volume},
     secrets=[arraylake_api_token_secret],
 )
 def run_forecast(
