@@ -95,7 +95,7 @@ ENV/
 
 # Cookiecutter folders
 /data/
-/figures/
+# /figures/
 /output/
 
 # snakemake

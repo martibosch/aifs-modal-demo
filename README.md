@@ -4,11 +4,12 @@
 
 Serverless AIFS forecasting in [modal](https://modal.com).
 
+![Example forecast over Europe](figures/forecast-europe.png)
+
 ## Requirements
 
-1. A [modal](https://modal.com) account to run serverless AIFS inference.
-2. An [earthmover](https://app.earthmover.io) account to pull the initial conditions using [Arraylake and Icechunk](https://docs.earthmover.io/guide/icechunk).
-3. A [Tigris storage bucket](https://www.tigrisdata.com/docs/buckets/create-bucket) to write the outputs using [Icechunk](https://icechunk.io/en/stable/overview)
+1. A [modal](https://modal.com) account to run serverless AIFS inference. The ["Starter" plan gets you 30$/month of free credits](https://modal.com/pricing), so considering that the running the example 96 h forecast costs about 0.05$, you should be able to run about 600 of them!
+2. A [Tigris storage bucket](https://www.tigrisdata.com/docs/buckets/create-bucket) to write the outputs using [Icechunk](https://icechunk.io/en/stable/overview). The ["Free Tier" gives you 5 GB of data storage per month](https://www.tigrisdata.com/pricing), which can be a bit limiting but still should let you run a few forecasts.
 
 ## Steps to run
 
@@ -18,11 +19,9 @@ Serverless AIFS forecasting in [modal](https://modal.com).
 pixi run modal setup
 ```
 
-2. Set up your [Earthmover API Client key](https://docs.earthmover.io/setup/org-access#creating-and-managing-api-keys) as [a modal secret](https://modal.com/docs/guide/secrets) named `arraylake-api-token` with the `ARRAYLAKE_API_TOKEN` key (with at least the "Write Repos" permission).
+2. Set up your Tigris access keys as [a modal secret](https://modal.com/docs/guide/secrets) named `aws-credentials` with at least the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` keys (and optionally `AWS_REGION`).
 
-3. Set up your Tigris access keys as [a modal secret](https://modal.com/docs/guide/secrets) named `aws-credentials` with at least the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` keys (and optionally `AWS_REGION`).
-
-4. Run [the `run-aifs-modal` notebook](https://github.com/martibosch/aifs-modal-demo/blob/main/notebooks/run-aifs-modal.ipynb) :rocket:!
+3. Run [the `run-aifs-modal` notebook](https://github.com/martibosch/aifs-modal-demo/blob/main/notebooks/run-aifs-modal.ipynb) :rocket:!
 
 ## Acknowledgments
 

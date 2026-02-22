@@ -5,11 +5,13 @@ import os
 import queue
 import threading
 from os import path
-from typing import TYPE_CHECKING
 
+import icechunk
 import modal
+import numpy as np
+import zarr
 
-LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
+from aifs_modal_demo import ingest, utils
 
 # modal app config
 GPU_TYPE = "L40S"
@@ -26,8 +28,8 @@ data_volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
 models_volume = modal.Volume.from_name(MODELS_VOLUME_NAME, create_if_missing=True)
 
 # secrets
-arraylake_api_token_secret = modal.Secret.from_name(
-    "arraylake-api-token",  # required_keys=["ARRAYLAKE_API_TOKEN"]
+aws_credentials_secret = modal.Secret.from_name(
+    "aws-credentials",
 )
 
 app = modal.App(APP_NAME)
@@ -70,19 +72,7 @@ image = (
     )
 )
 
-
-if TYPE_CHECKING:
-    import icechunk
-    import numpy as np
-
-
 # utils
-def datetime_to_str(date: datetime.datetime) -> str:
-    """Convert datetime to a string."""
-    assert date.tzinfo == datetime.UTC
-    assert date.minute == date.second == date.microsecond == 0
-    assert date.hour in [0, 6, 12, 18]
-    return date.strftime("%Y-%m-%d/%Hz")
 
 
 def get_gpu_regridder(source_grid, target_grid, method="linear"):
@@ -158,20 +148,17 @@ def state_to_xarray(state, regridder, include_pressure_levels=False):
 
 
 def fetch_initial_conditions(
-    date: datetime.datetime, session: "icechunk.Session"
-) -> dict[str, "np.ndarray"]:
+    date: datetime.datetime, session: icechunk.Session
+) -> dict[str, np.ndarray]:
     """Fetch initial conditions for a given date."""
-    import numpy as np
-    import zarr
-
     group_prev = zarr.open_group(
         session.store,
         zarr_format=3,
-        path=datetime_to_str(date - datetime.timedelta(hours=6)),
+        path=utils.datetime_to_str(date - datetime.timedelta(hours=6)),
         mode="r",
     )
     group_curr = zarr.open_group(
-        session.store, zarr_format=3, path=datetime_to_str(date), mode="r"
+        session.store, zarr_format=3, path=utils.datetime_to_str(date), mode="r"
     )
 
     vnames_curr = group_curr["variable"][:]
@@ -195,33 +182,34 @@ def fetch_initial_conditions(
     }
 
     # convert to geopotential height
-    for level in LEVELS:
+    for level in ingest.LEVELS:
         gh = fields.pop(f"gh_{level}")
         fields[f"z_{level}"] = gh * 9.80665
 
     return fields
 
 
+# app
 @app.function(
     image=image,
     gpu=GPU_TYPE,
     timeout=60 * 60 * 4,
     volumes={DATA_DIR: data_volume, MODELS_DIR: models_volume},
-    secrets=[arraylake_api_token_secret],
+    secrets=[aws_credentials_secret],
 )
 def run_forecast(
     date: datetime.datetime,
     # target_storage_path: str,
-    target_repo: str,
+    storage_bucket: str,
     *,
     lead_time: int = 96,
-    initial_conditions_repo: str = "earthmover-public/aifs-initial-conditions",
+    initial_conditions_prefix: str = "aifs-initial-conditions",
     initial_conditions_branch: str = "main",
-    target_branch: str = "main",
+    outputs_prefix: str = "aifs-outputs",
+    outputs_branch: str = "main",
     checkpoint: dict | None = None,
 ) -> None:  # dict[str, str]:
     """Run forecast."""
-    import arraylake as al
     import icechunk
     import torch
     from anemoi.inference.outputs.printer import print_state
@@ -229,23 +217,34 @@ def run_forecast(
 
     date_no_tz = date.replace(tzinfo=None)
 
-    # load initial conditions from arraylake
-    client = al.Client(token=os.environ["ARRAYLAKE_API_TOKEN"])
-    # client.login()
-    # ACHTUNG: use default config to avoid confusion with AWS credentials
-    config = icechunk.RepositoryConfig.default()
-    repo = client.get_repo(initial_conditions_repo, config=config)
-    input_session = repo.readonly_session(initial_conditions_branch)
-
-    # get target session for outputs
-    target_session = client.get_or_create_repo(target_repo).writable_session(
-        target_branch
+    # get initial conditions session
+    initial_conditions_storage = icechunk.tigris_storage(
+        bucket=storage_bucket,
+        prefix=initial_conditions_prefix,
+        region=os.getenv("AWS_REGION", None),
+        access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+        secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
     )
+    initial_conditions_repo = icechunk.Repository.open(initial_conditions_storage)
+    initial_conditions_session = initial_conditions_repo.writable_session(
+        initial_conditions_branch
+    )
+
+    # get outputs session
+    outputs_storage = icechunk.tigris_storage(
+        bucket=storage_bucket,
+        prefix=outputs_prefix,
+        region=os.getenv("AWS_REGION", None),
+        access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+        secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+    )
+    outputs_repo = icechunk.Repository.open_or_create(outputs_storage)
+    outputs_session = outputs_repo.writable_session(outputs_branch)
 
     # date = datetime.datetime(2025, 9, 15, 6, 0, 0, tzinfo=datetime.UTC)
     print("loading initial conditions for", date)
     # fields = load_fields(session, input_group)
-    fields = fetch_initial_conditions(date, input_session)
+    fields = fetch_initial_conditions(date, initial_conditions_session)
     input_state = dict(date=date_no_tz, fields=fields)
 
     if checkpoint is None:
@@ -277,10 +276,10 @@ def run_forecast(
     for n, state in enumerate(runner.run(input_state=input_state, lead_time=lead_time)):
         print_state(state)
         ds = state_to_xarray(state, regridder=regridder).chunk()
-        group = datetime_to_str(date)
+        group = utils.datetime_to_str(date)
         if n > 0:
             kwargs = {"mode": "a", "append_dim": "valid_time"}
-        q.put((ds, target_session.store, group, kwargs))
+        q.put((ds, outputs_session.store, group, kwargs))
 
     # wait for all I/O tasks to finish
     q.join()
@@ -288,7 +287,7 @@ def run_forecast(
     torch.cuda.empty_cache()
     commit_msg = (
         f"{lead_time} hour forecast for {date.strftime('%Y-%m-%d %H:%M')} written to "
-        f"{target_repo}"
+        f"{outputs_repo}"
     )
-    target_session.commit(commit_msg)
+    outputs_session.commit(commit_msg)
     print(commit_msg)
