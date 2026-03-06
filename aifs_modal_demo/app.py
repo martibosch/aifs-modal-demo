@@ -1,5 +1,6 @@
 """AIFS Modal app."""
 
+import contextlib
 import datetime
 import os
 import queue
@@ -28,6 +29,9 @@ data_volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
 models_volume = modal.Volume.from_name(MODELS_VOLUME_NAME, create_if_missing=True)
 
 # secrets
+arraylake_api_token_secret = modal.Secret.from_name(
+    "arraylake-api-token",  # required_keys=["ARRAYLAKE_API_TOKEN"]
+)
 aws_credentials_secret = modal.Secret.from_name(
     "aws-credentials",
 )
@@ -72,7 +76,26 @@ image = (
     )
 )
 
+
 # utils
+@contextlib.contextmanager
+def _without_aws_env():
+    keys = [
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AWS_REGION",
+        "AWS_DEFAULT_REGION",
+        "AWS_PROFILE",
+        "AWS_SHARED_CREDENTIALS_FILE",
+        "AWS_CONFIG_FILE",
+        "AWS_ENDPOINT_URL",
+    ]
+    saved = {key: os.environ.pop(key) for key in keys if key in os.environ}
+    try:
+        yield
+    finally:
+        os.environ.update(saved)
 
 
 def get_gpu_regridder(source_grid, target_grid, method="linear"):
@@ -195,7 +218,7 @@ def fetch_initial_conditions(
     gpu=GPU_TYPE,
     timeout=60 * 60 * 4,
     volumes={DATA_DIR: data_volume, MODELS_DIR: models_volume},
-    secrets=[aws_credentials_secret],
+    secrets=[arraylake_api_token_secret, aws_credentials_secret],
 )
 def run_forecast(
     date: datetime.datetime,
@@ -203,7 +226,8 @@ def run_forecast(
     storage_bucket: str,
     *,
     lead_time: int = 96,
-    initial_conditions_prefix: str = "aifs-initial-conditions",
+    initial_conditions_repo: str | None = None,
+    initial_conditions_prefix: str | None = None,
     initial_conditions_branch: str = "main",
     outputs_prefix: str = "aifs-outputs",
     outputs_branch: str = "main",
@@ -211,6 +235,7 @@ def run_forecast(
     include_pressure_levels: bool = False,
 ) -> None:  # dict[str, str]:
     """Run forecast."""
+    import arraylake as al
     import icechunk
     import torch
     from anemoi.inference.outputs.printer import print_state
@@ -219,17 +244,30 @@ def run_forecast(
     date_no_tz = date.replace(tzinfo=None)
 
     # get initial conditions session
-    initial_conditions_storage = icechunk.tigris_storage(
-        bucket=storage_bucket,
-        prefix=initial_conditions_prefix,
-        region=os.getenv("AWS_REGION", None),
-        access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-        secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-    )
-    initial_conditions_repo = icechunk.Repository.open(initial_conditions_storage)
-    initial_conditions_session = initial_conditions_repo.writable_session(
-        initial_conditions_branch
-    )
+    if initial_conditions_repo is not None:
+        # if a repo is passed, it takes precedence
+        # load initial conditions from arraylake
+        with _without_aws_env():
+            # we need the context manager to avoid arraylake issues with aws env vars
+            client = al.Client(token=os.environ["ARRAYLAKE_API_TOKEN"])
+            # client.login()
+            # ACHTUNG: use default config to avoid confusion with AWS credentials
+            config = icechunk.RepositoryConfig.default()
+            initial_conditions_session = client.get_repo(
+                initial_conditions_repo, config=config
+            ).readonly_session(initial_conditions_branch)
+    else:
+        # get initial conditions from bucket
+        initial_conditions_storage = icechunk.tigris_storage(
+            bucket=storage_bucket,
+            prefix=initial_conditions_prefix,
+            region=os.getenv("AWS_REGION", None),
+            access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+            secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+        )
+        initial_conditions_session = icechunk.Repository.open(
+            initial_conditions_storage
+        ).writable_session(initial_conditions_branch)
 
     # get outputs session
     outputs_storage = icechunk.tigris_storage(
@@ -240,9 +278,26 @@ def run_forecast(
         secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
     )
     outputs_repo = icechunk.Repository.open_or_create(outputs_storage)
+    if outputs_branch not in outputs_repo.list_branches():
+        base = outputs_repo.readonly_session("main").snapshot_id
+        outputs_repo.create_branch(outputs_branch, base)
+
+    # if target forecast already exists, do not re-run it
+    # ACHTUNG: this only make sense if we assume (i) the deterministic forecasts and
+    # (ii) that we always use the same initial conditions
+    group = utils.datetime_to_str(date)
+    readonly_session = outputs_repo.readonly_session(outputs_branch)
+    try:
+        zarr.open_group(readonly_session.store, path=group, mode="r", zarr_format=3)
+        print(
+            f"Forecast already exists for {date.isoformat()} (group: {group}); skipping"
+        )
+        return
+    except zarr.errors.GroupNotFoundError:
+        pass
+
     outputs_session = outputs_repo.writable_session(outputs_branch)
 
-    # date = datetime.datetime(2025, 9, 15, 6, 0, 0, tzinfo=datetime.UTC)
     print("loading initial conditions for", date)
     # fields = load_fields(session, input_group)
     fields = fetch_initial_conditions(date, initial_conditions_session)
