@@ -208,6 +208,7 @@ def run_forecast(
     outputs_prefix: str = "aifs-outputs",
     outputs_branch: str = "main",
     checkpoint: dict | None = None,
+    include_pressure_levels: bool = False,
 ) -> None:  # dict[str, str]:
     """Run forecast."""
     import icechunk
@@ -275,7 +276,9 @@ def run_forecast(
 
     for n, state in enumerate(runner.run(input_state=input_state, lead_time=lead_time)):
         print_state(state)
-        ds = state_to_xarray(state, regridder=regridder).chunk()
+        ds = state_to_xarray(
+            state, regridder=regridder, include_pressure_levels=include_pressure_levels
+        ).chunk()
         group = utils.datetime_to_str(date)
         if n > 0:
             kwargs = {"mode": "a", "append_dim": "valid_time"}
