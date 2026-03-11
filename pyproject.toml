@@ -19,7 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3.14"
 ]
 requires-python = ">=3.10"
-dependencies = ["earthkit-regrid>=0.5.1,<0.6"]
+dependencies = ["earthkit-regrid>=0.5.1,<0.6", "anemoi-graphs>=0.8.5,<0.9", "anemoi-datasets>=0.4.5,<0.5", "meteora[xvec]==0.13.0"]
 
 [project.urls]
 repository = "https://github.com/martibosch/aifs-modal-demo"
@@ -37,8 +37,7 @@ ruff = ["--ignore=D"]
 [tool.pixi.dependencies]
 ipykernel = ">=7.2.0,<8"
 pre-commit = ">=4.4.0,<5"
-python = "==3.13"
-snakemake = ">=9.13.7,<10"
+python = "==3.12"
 cartopy = ">=0.25.0,<0.26"
 icechunk = ">=1.1.18,<2"
 matplotlib = ">=3.10.8,<4"
@@ -47,15 +46,23 @@ zarr = ">=3.1.5,<4"
 modal-client = ">=1.3.2,<2"
 earthkit-data = ">=0.19.0,<0.20"
 ecmwf-opendata = ">=0.3.26,<0.4"
+streamlit = ">=1.44.0,<2"
+pillow = ">=11.2.1,<12"
+cdsapi = ">=0.7.7,<0.8"
+iprogress = ">=0.4,<0.5"
+ipywidgets = ">=8.1.8,<9"
+seaborn = ">=0.13.2,<0.14"
 
 [tool.pixi.pypi-dependencies]
 aifs_modal_demo = {path = ".", editable = true}
+gcsfs = ">=2025.12.0"
+stationbench = {git = "https://github.com/martibosch/stationbench", rev = "2e933efa9e77b6bd3ef1c03f7300d7be55723462"}
 
 [tool.pixi.workspace]
 authors = ["Martí Bosch marti.bosch@protonmail.com>"]
-channels = ["conda-forge", "bioconda"]
+channels = ["conda-forge"]
 name = "aifs-modal-demo"
-platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
 version = "0.1.0"
 
 [tool.ruff]
