@@ -23,16 +23,16 @@ PARAM_SFC = [
     "msl",
     "skt",
     "sp",
-    "tcw",
+    "tcwv",
     "lsm",
     "z",
     "slor",
     "sdor",
 ]
 PARAM_SOIL = ["vsw", "sot"]
+SOIL_LEVELS = [1, 2]
 PARAM_PL = ["gh", "t", "u", "v", "w", "q"]
 LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
-SOIL_LEVELS = [1, 2]
 
 
 def get_data_for_date(
@@ -212,7 +212,13 @@ def fetch_initial_conditions(
     data = np.stack([fields_prev, fields_curr], axis=1)
 
     # tweak data to conform with AIFS input format
-    mapping = {"sot_1": "stl1", "sot_2": "stl2", "vsw_1": "swvl1", "vsw_2": "swvl2"}
+    mapping = {
+        "sot_1": "stl1",
+        "sot_2": "stl2",
+        "vsw_1": "swvl1",
+        "vsw_2": "swvl2",
+        "tcwv": "tcw",
+    }
 
     def maybe_rename_vname(vname):
         if vname in mapping:

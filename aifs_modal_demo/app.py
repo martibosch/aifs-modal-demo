@@ -9,7 +9,6 @@ from os import path
 
 import icechunk
 import modal
-import numpy as np
 import zarr
 
 from aifs_modal_demo import ingest, utils
@@ -29,12 +28,11 @@ data_volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
 models_volume = modal.Volume.from_name(MODELS_VOLUME_NAME, create_if_missing=True)
 
 # secrets
-arraylake_api_token_secret = modal.Secret.from_name(
-    "arraylake-api-token",  # required_keys=["ARRAYLAKE_API_TOKEN"]
-)
-aws_credentials_secret = modal.Secret.from_name(
-    "aws-credentials",
-)
+# arraylake is optional: only included when ARRAYLAKE_API_TOKEN is set locally,
+# i.e., when the user wants to pull initial conditions from an Arraylake repo
+_secrets = [modal.Secret.from_name("aws-credentials")]
+if os.getenv("ARRAYLAKE_API_TOKEN"):
+    _secrets.append(modal.Secret.from_name("arraylake-api-token"))
 
 app = modal.App(APP_NAME)
 
@@ -170,55 +168,13 @@ def state_to_xarray(state, regridder, include_pressure_levels=False):
     return ds
 
 
-def fetch_initial_conditions(
-    date: datetime.datetime, session: icechunk.Session
-) -> dict[str, np.ndarray]:
-    """Fetch initial conditions for a given date."""
-    group_prev = zarr.open_group(
-        session.store,
-        zarr_format=3,
-        path=utils.datetime_to_str(date - datetime.timedelta(hours=6)),
-        mode="r",
-    )
-    group_curr = zarr.open_group(
-        session.store, zarr_format=3, path=utils.datetime_to_str(date), mode="r"
-    )
-
-    vnames_curr = group_curr["variable"][:]
-    vnames_prev = group_prev["variable"][:]
-    np.testing.assert_equal(vnames_curr, vnames_prev)
-
-    fields_prev = group_prev["fields"][:]
-    fields_curr = group_curr["fields"][:]
-    data = np.stack([fields_prev, fields_curr], axis=1)
-
-    # tweak data to conform with AIFS input format
-    mapping = {"sot_1": "stl1", "sot_2": "stl2", "vsw_1": "swvl1", "vsw_2": "swvl2"}
-
-    def maybe_rename_vname(vname):
-        if vname in mapping:
-            return mapping[vname]
-        return vname
-
-    fields = {
-        maybe_rename_vname(vnames_curr[n]): data[n] for n in range(len(vnames_curr))
-    }
-
-    # convert to geopotential height
-    for level in ingest.LEVELS:
-        gh = fields.pop(f"gh_{level}")
-        fields[f"z_{level}"] = gh * 9.80665
-
-    return fields
-
-
 # app
 @app.function(
     image=image,
     gpu=GPU_TYPE,
     timeout=60 * 60 * 4,
     volumes={DATA_DIR: data_volume, MODELS_DIR: models_volume},
-    secrets=[arraylake_api_token_secret, aws_credentials_secret],
+    secrets=_secrets,
 )
 def run_forecast(
     date: datetime.datetime,
@@ -236,7 +192,6 @@ def run_forecast(
 ) -> None:  # dict[str, str]:
     """Run forecast."""
     import arraylake as al
-    import icechunk
     import torch
     from anemoi.inference.outputs.printer import print_state
     from anemoi.inference.runners.simple import SimpleRunner
@@ -299,8 +254,7 @@ def run_forecast(
     outputs_session = outputs_repo.writable_session(outputs_branch)
 
     print("loading initial conditions for", date)
-    # fields = load_fields(session, input_group)
-    fields = fetch_initial_conditions(date, initial_conditions_session)
+    fields = ingest.fetch_initial_conditions(date, initial_conditions_session)
     input_state = dict(date=date_no_tz, fields=fields)
 
     if checkpoint is None:
