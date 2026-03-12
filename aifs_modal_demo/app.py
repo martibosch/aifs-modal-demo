@@ -33,6 +33,9 @@ models_volume = modal.Volume.from_name(MODELS_VOLUME_NAME, create_if_missing=Tru
 _secrets = [modal.Secret.from_name("aws-credentials")]
 if os.getenv("ARRAYLAKE_API_TOKEN"):
     _secrets.append(modal.Secret.from_name("arraylake-api-token"))
+# hf token is also optional (enable faster downloads)
+if os.getenv("HF_HUB_TOKEN"):
+    _secrets.append(modal.Secret.from_name("huggingface-secret"))
 
 app = modal.App(APP_NAME)
 
