@@ -52,7 +52,7 @@ image = (
         # "anemoi-datasets==0.5.21",
         # "anemoi-graphs==0.5.0",
         "anemoi-inference[huggingface]==0.6.3",
-        "anemoi-models==0.5.0",
+        "anemoi-models==0.5.1",
         "anemoi-utils==0.4.22",
         "arraylake",
         "boto3",
