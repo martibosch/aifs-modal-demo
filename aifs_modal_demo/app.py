@@ -13,6 +13,10 @@ import zarr
 
 from aifs_modal_demo import ingest, utils
 
+# AIFS checkpoints
+AIFS_SINGLE_CHECKPOINT = {"huggingface": "ecmwf/aifs-single-1.1"}
+AIFS_ENS_CHECKPOINT = {"huggingface": "ecmwf/aifs-ens-1.0"}
+
 # modal app config
 GPU_TYPE = "L40S"
 DATA_VOLUME_NAME = "aifs-data"
@@ -191,11 +195,13 @@ def run_forecast(
     outputs_prefix: str = "aifs-outputs",
     outputs_branch: str = "main",
     checkpoint: dict | None = None,
+    n_members: int | None = None,
     include_pressure_levels: bool = False,
 ) -> None:  # dict[str, str]:
     """Run forecast."""
     import arraylake as al
     import torch
+    import xarray as xr
     from anemoi.inference.outputs.printer import print_state
     from anemoi.inference.runners.simple import SimpleRunner
 
@@ -240,19 +246,42 @@ def run_forecast(
         base = outputs_repo.readonly_session("main").snapshot_id
         outputs_repo.create_branch(outputs_branch, base)
 
-    # if target forecast already exists, do not re-run it
-    # ACHTUNG: this only make sense if we assume (i) the deterministic forecasts and
-    # (ii) that we always use the same initial conditions
-    group = utils.datetime_to_str(date)
+    # check if requested forecasts already exist
+    # (if a target forecast already exists, do not re-run it)
+    base_group = utils.datetime_to_str(date)
     readonly_session = outputs_repo.readonly_session(outputs_branch)
-    try:
-        zarr.open_group(readonly_session.store, path=group, mode="r", zarr_format=3)
-        print(
-            f"Forecast already exists for {date.isoformat()} (group: {group}); skipping"
-        )
-        return
-    except zarr.errors.GroupNotFoundError:
-        pass
+
+    if n_members is not None:
+        # ensemble: check if group already has all members
+        try:
+            existing = xr.open_dataset(
+                readonly_session.store,
+                group=base_group,
+                engine="zarr",
+                zarr_format=3,
+                chunks=None,
+            )
+            if existing.sizes.get("ensemble_member", 0) >= n_members:
+                print(
+                    f"Ensemble forecast already complete for {date.isoformat()} "
+                    f"({n_members} members); skipping"
+                )
+                return
+        except (zarr.errors.GroupNotFoundError, Exception):
+            pass
+    else:
+        # deterministic: check if group exists
+        try:
+            zarr.open_group(
+                readonly_session.store, path=base_group, mode="r", zarr_format=3
+            )
+            print(
+                f"Forecast already exists for {date.isoformat()} "
+                f"(group: {base_group}); skipping"
+            )
+            return
+        except zarr.errors.GroupNotFoundError:
+            pass
 
     outputs_session = outputs_repo.writable_session(outputs_branch)
 
@@ -261,48 +290,116 @@ def run_forecast(
     input_state = dict(date=date_no_tz, fields=fields)
 
     if checkpoint is None:
-        checkpoint = {"huggingface": "ecmwf/aifs-single-1.1"}
+        if n_members is not None:
+            checkpoint = AIFS_ENS_CHECKPOINT
+        else:
+            checkpoint = AIFS_SINGLE_CHECKPOINT
 
     runner = SimpleRunner(checkpoint, device="cuda")
 
-    q = queue.Queue()
-    lock = threading.Lock()
+    # filter input fields to only include variables the checkpoint expects
+    expected_vars = set(runner.checkpoint.variable_to_input_tensor_index)
+    extra = set(fields) - expected_vars
+    if extra:
+        print(f"dropping {len(extra)} variables not expected by checkpoint: {extra}")
+        fields = {k: v for k, v in fields.items() if k in expected_vars}
+        input_state = dict(date=date_no_tz, fields=fields)
+    missing = expected_vars - set(fields)
+    if missing:
+        # computed forcings (e.g. cos_latitude, insolation) are injected by the
+        # runner automatically — just log them for visibility
+        print(f"{len(missing)} variables will be computed by the runner: {missing}")
 
-    def worker():
-        while True:
-            (ds, store, group_name, kwargs) = q.get()
-            with lock:
-                ds.to_zarr(
-                    store, group=group_name, zarr_format=3, consolidated=False, **kwargs
-                )
-            q.task_done()
-
-    threading.Thread(target=worker, daemon=True).start()
-
-    torch.cuda.empty_cache()
-
+    # prepare regridder
     regridder = get_gpu_regridder({"grid": "N320"}, {"grid": (0.25, 0.25)})
 
-    print("starting forecast loop")
-    kwargs = {"mode": "w"}
+    # run forecasts
+    if n_members is not None:
+        # ensemble mode
+        # Accumulate all lead times per member, then write each member with an
+        # "ensemble_member" dimension.  Member 0 creates the group; subsequent members
+        # append along "ensemble_member".
+        for m in range(n_members):
+            torch.manual_seed(m)
+            torch.cuda.empty_cache()
+            print(f"running ensemble member {m}/{n_members - 1}")
 
-    for n, state in enumerate(runner.run(input_state=input_state, lead_time=lead_time)):
-        print_state(state)
-        ds = state_to_xarray(
-            state, regridder=regridder, include_pressure_levels=include_pressure_levels
-        ).chunk()
-        group = utils.datetime_to_str(date)
-        if n > 0:
-            kwargs = {"mode": "a", "append_dim": "valid_time"}
-        q.put((ds, outputs_session.store, group, kwargs))
+            steps = []
+            for state in runner.run(input_state=input_state, lead_time=lead_time):
+                print_state(state)
+                steps.append(
+                    state_to_xarray(
+                        state,
+                        regridder=regridder,
+                        include_pressure_levels=include_pressure_levels,
+                        # init_time=date_no_tz,
+                    )
+                )
 
-    # wait for all I/O tasks to finish
-    q.join()
+            member_ds = xr.concat(steps, dim="valid_time")
+            member_ds = member_ds.expand_dims(ensemble_member=[m]).chunk()
+
+            if m == 0:
+                member_ds.to_zarr(
+                    outputs_session.store,
+                    group=base_group,
+                    zarr_format=3,
+                    consolidated=False,
+                    mode="w",
+                )
+            else:
+                member_ds.to_zarr(
+                    outputs_session.store,
+                    group=base_group,
+                    zarr_format=3,
+                    consolidated=False,
+                    append_dim="ensemble_member",
+                )
+            del steps, member_ds
+    else:
+        # single (deterministic) mode
+        # stream each lead time to zarr via a background writer thread
+        q = queue.Queue()
+        lock = threading.Lock()
+
+        def worker():
+            while True:
+                (ds, store, group_name, kwargs) = q.get()
+                with lock:
+                    ds.to_zarr(
+                        store,
+                        group=group_name,
+                        zarr_format=3,
+                        consolidated=False,
+                        **kwargs,
+                    )
+                q.task_done()
+
+        threading.Thread(target=worker, daemon=True).start()
+
+        kwargs = {"mode": "w"}
+        for n, state in enumerate(
+            runner.run(input_state=input_state, lead_time=lead_time)
+        ):
+            print_state(state)
+            ds = state_to_xarray(
+                state,
+                regridder=regridder,
+                include_pressure_levels=include_pressure_levels,
+            ).chunk()
+            group = utils.datetime_to_str(date)
+            if n > 0:
+                kwargs = {"mode": "a", "append_dim": "valid_time"}
+            q.put((ds, outputs_session.store, group, kwargs))
+
+        # wait for all I/O tasks to finish
+        q.join()
 
     torch.cuda.empty_cache()
+    member_str = f" ({n_members} members)" if n_members else ""
     commit_msg = (
-        f"{lead_time} hour forecast for {date.strftime('%Y-%m-%d %H:%M')} written to "
-        f"{outputs_repo}"
+        f"{lead_time} hour forecast{member_str} for "
+        f"{date.strftime('%Y-%m-%d %H:%M')} written to {outputs_repo}"
     )
     outputs_session.commit(commit_msg)
     print(commit_msg)

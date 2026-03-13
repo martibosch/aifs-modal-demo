@@ -56,7 +56,7 @@ seaborn = ">=0.13.2,<0.14"
 [tool.pixi.pypi-dependencies]
 aifs_modal_demo = {path = ".", editable = true}
 gcsfs = ">=2025.12.0"
-stationbench = {git = "https://github.com/martibosch/stationbench", rev = "2e933efa9e77b6bd3ef1c03f7300d7be55723462"}
+stationbench = {git = "https://github.com/martibosch/stationbench", rev = "139b25b3c258202a9bdea1787fd3b04f8155c9e5", extras = ["ensemble"]}
 
 [tool.pixi.workspace]
 authors = ["Martí Bosch marti.bosch@protonmail.com>"]

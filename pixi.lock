@@ -443,10 +443,11 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/3b/5d/63d4ae3b9daea098d5d6f5da83984853c1bbacd5dc826764b249fe119d24/requests_oauthlib-2.0.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/64/8d/0133e4eb4beed9e425d9a98ed6e081a55d195481b7632472be1af08d2f6b/rsa-4.9.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/97/74/b7a304feb2b49df9fafa9382d4d09061a96ee9a9449a7cbea7988dda0828/scikit_learn-1.8.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+      - pypi: https://files.pythonhosted.org/packages/3d/03/941d4c31846e8a56f36e824a2b183d8a0896d54d2c5cdc59fa87b588e6d7/scoringrules-0.8.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6a/23/8146aad7d88f4fcb3a6218f41a60f6c2d4e3a72de72da1825dc7c8f7877c/semantic_version-2.10.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/53/39/be412cc86bc6247b8f69e9383d7950711bd86f8d0a4a4b0fe8fad685bc21/sentry_sdk-2.54.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d0/99/71630546b9395b095f4082be41165d1078204d1696c2d9baade3de3202d0/setproctitle-1.3.7-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl
-      - pypi: git+https://github.com/martibosch/stationbench?rev=2e933efa9e77b6bd3ef1c03f7300d7be55723462#2e933efa9e77b6bd3ef1c03f7300d7be55723462
+      - pypi: git+https://github.com/martibosch/stationbench?rev=139b25b3c258202a9bdea1787fd3b04f8155c9e5#139b25b3c258202a9bdea1787fd3b04f8155c9e5
       - pypi: https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/32/d5/f9a850d79b0851d1d4ef6456097579a9005b31fea68726a4ae5f2d82ddd9/threadpoolctl-3.6.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b3/7a/abada41517ce0011775f0f4eacc79659bc9bc6c361e6bfe6f7052a6b9363/torch-2.10.0-3-cp312-cp312-manylinux_2_28_x86_64.whl
@@ -811,10 +812,11 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/3b/5d/63d4ae3b9daea098d5d6f5da83984853c1bbacd5dc826764b249fe119d24/requests_oauthlib-2.0.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/64/8d/0133e4eb4beed9e425d9a98ed6e081a55d195481b7632472be1af08d2f6b/rsa-4.9.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/90/74/e6a7cc4b820e95cc38cf36cd74d5aa2b42e8ffc2d21fe5a9a9c45c1c7630/scikit_learn-1.8.0-cp312-cp312-macosx_10_13_x86_64.whl
+      - pypi: https://files.pythonhosted.org/packages/3d/03/941d4c31846e8a56f36e824a2b183d8a0896d54d2c5cdc59fa87b588e6d7/scoringrules-0.8.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6a/23/8146aad7d88f4fcb3a6218f41a60f6c2d4e3a72de72da1825dc7c8f7877c/semantic_version-2.10.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/53/39/be412cc86bc6247b8f69e9383d7950711bd86f8d0a4a4b0fe8fad685bc21/sentry_sdk-2.54.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fb/f0/2dc88e842077719d7384d86cc47403e5102810492b33680e7dadcee64cd8/setproctitle-1.3.7-cp312-cp312-macosx_10_13_universal2.whl
-      - pypi: git+https://github.com/martibosch/stationbench?rev=2e933efa9e77b6bd3ef1c03f7300d7be55723462#2e933efa9e77b6bd3ef1c03f7300d7be55723462
+      - pypi: git+https://github.com/martibosch/stationbench?rev=139b25b3c258202a9bdea1787fd3b04f8155c9e5#139b25b3c258202a9bdea1787fd3b04f8155c9e5
       - pypi: https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/32/d5/f9a850d79b0851d1d4ef6456097579a9005b31fea68726a4ae5f2d82ddd9/threadpoolctl-3.6.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/79/78/29dcab24a344ffd9ee9549ec0ab2c7885c13df61cde4c65836ee275efaeb/torch-2.2.2-cp312-none-macosx_10_9_x86_64.whl
@@ -1178,10 +1180,11 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/3b/5d/63d4ae3b9daea098d5d6f5da83984853c1bbacd5dc826764b249fe119d24/requests_oauthlib-2.0.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/64/8d/0133e4eb4beed9e425d9a98ed6e081a55d195481b7632472be1af08d2f6b/rsa-4.9.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/49/d8/9be608c6024d021041c7f0b3928d4749a706f4e2c3832bbede4fb4f58c95/scikit_learn-1.8.0-cp312-cp312-macosx_12_0_arm64.whl
+      - pypi: https://files.pythonhosted.org/packages/3d/03/941d4c31846e8a56f36e824a2b183d8a0896d54d2c5cdc59fa87b588e6d7/scoringrules-0.8.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6a/23/8146aad7d88f4fcb3a6218f41a60f6c2d4e3a72de72da1825dc7c8f7877c/semantic_version-2.10.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/53/39/be412cc86bc6247b8f69e9383d7950711bd86f8d0a4a4b0fe8fad685bc21/sentry_sdk-2.54.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f0/b4/50940504466689cda65680c9e9a1e518e5750c10490639fa687489ac7013/setproctitle-1.3.7-cp312-cp312-macosx_11_0_arm64.whl
-      - pypi: git+https://github.com/martibosch/stationbench?rev=2e933efa9e77b6bd3ef1c03f7300d7be55723462#2e933efa9e77b6bd3ef1c03f7300d7be55723462
+      - pypi: git+https://github.com/martibosch/stationbench?rev=139b25b3c258202a9bdea1787fd3b04f8155c9e5#139b25b3c258202a9bdea1787fd3b04f8155c9e5
       - pypi: https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/32/d5/f9a850d79b0851d1d4ef6456097579a9005b31fea68726a4ae5f2d82ddd9/threadpoolctl-3.6.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d3/54/a2ba279afcca44bbd320d4e73675b282fcee3d81400ea1b53934efca6462/torch-2.10.0-2-cp312-none-macosx_11_0_arm64.whl
@@ -1245,7 +1248,7 @@ packages:
 - pypi: ./
   name: aifs-modal-demo
   version: 0.1.0
-  sha256: 774bcaf83a933e61d8abb37a15f93f3d4b22573e312b2eb4f0ccbb1b4f7a2b4a
+  sha256: 43b099f890094f12b7e5323d9267d75465f29bfb93528460878f8764a71bb9d8
   requires_dist:
   - earthkit-regrid>=0.5.1,<0.6
   - anemoi-graphs>=0.8.5,<0.9
@@ -10840,6 +10843,18 @@ packages:
   - pkg:pypi/scipy?source=hash-mapping
   size: 13966986
   timestamp: 1771881089893
+- pypi: https://files.pythonhosted.org/packages/3d/03/941d4c31846e8a56f36e824a2b183d8a0896d54d2c5cdc59fa87b588e6d7/scoringrules-0.8.0-py3-none-any.whl
+  name: scoringrules
+  version: 0.8.0
+  sha256: 98eafc66fe83143d88da4b53d544896823390fdad01c9fd49424469eced3a716
+  requires_dist:
+  - numpy>=1.25.0
+  - scipy>=1.10.0
+  - jax>=0.4.31 ; extra == 'jax'
+  - numba>=0.60.0 ; extra == 'numba'
+  - tensorflow>=2.17.0 ; extra == 'tensorflow'
+  - torch>=2.4.1 ; extra == 'torch'
+  requires_python: '>=3.10'
 - conda: https://conda.anaconda.org/conda-forge/noarch/seaborn-0.13.2-hd8ed1ab_3.conda
   noarch: python
   sha256: ea29a69b14dd6be5cdeeaa551bf50d78cafeaf0351e271e358f9b820fcab4cb0
@@ -11174,16 +11189,17 @@ packages:
   - pkg:pypi/stack-data?source=hash-mapping
   size: 26988
   timestamp: 1733569565672
-- pypi: git+https://github.com/martibosch/stationbench?rev=2e933efa9e77b6bd3ef1c03f7300d7be55723462#2e933efa9e77b6bd3ef1c03f7300d7be55723462
+- pypi: git+https://github.com/martibosch/stationbench?rev=139b25b3c258202a9bdea1787fd3b04f8155c9e5#139b25b3c258202a9bdea1787fd3b04f8155c9e5
   name: stationbench
   version: 0.1.2
   requires_dist:
   - dask[distributed]>=2026.1.2,<2027.0.0
-  - gcsfs>=2025.12.0
+  - gcsfs>=2026.1.0,<2027.0.0
   - kaleido==0.2.1
   - nbformat>=5.10.4,<6.0.0
   - pandas>=2.2.0,<3.0.0
   - plotly>=5.18.0,<6.0.0
+  - scoringrules>=0.8,<0.9 ; extra == 'ensemble'
   - wandb>=0.19.7,<0.20.0
   - xarray[io]>=2026.2.0,<2027.0.0
   - zarr>=3.0.4,<4.0.0
