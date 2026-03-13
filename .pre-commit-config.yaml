@@ -20,8 +20,9 @@ repos:
     hooks:
       - id: mdformat
         additional_dependencies:
-          - mdformat-gfm
           - mdformat-black
+          - mdformat-gfm
+          - mdformat-footnote
           - mdformat-pyproject
 
   - repo: https://github.com/pappasam/toml-sort
